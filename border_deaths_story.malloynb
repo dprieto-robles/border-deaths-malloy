@@ -1,0 +1,131 @@
+>>>markdown
+# Migrant Deaths Along the U.S.-Mexico Border: A Story in Data
+
+This notebook tells the story of what I learned while exploring the
+No More Deaths Border Death Database. The dataset contains 8,832 recorded
+deaths across the southern U.S. border spanning more than four decades.
+
+I started this project curious about one main question: how many migrant
+deaths have been recorded along the border, and where are they happening?
+What I found led me to several deeper discoveries about the scale, geography,
+and identification challenges of this humanitarian situation.
+
+>>>malloy
+source: deaths is duckdb.table("data/border_deaths_master.csv") extend {
+
+  dimension: year_clean is `Year`::number
+  dimension: age_numeric is Age::number
+
+  dimension: us_state_only is case
+    when State = 'Arizona' then 'Arizona'
+    when State = 'California' then 'California'
+    when State = 'Texas' then 'Texas'
+    when State = 'New Mexico' then 'New Mexico'
+    else 'Other'
+  end
+
+  measure: total_deaths is count()
+  measure: deaths_with_known_age is count() { where: age_numeric is not null }
+  measure: deaths_with_coordinates is count() {
+    where: Latitude is not null and Longitude is not null
+  }
+
+}
+
+>>>markdown
+## Question 1: How many recorded deaths are there in total?
+
+I began by simply asking the dataset how many deaths it contains overall.
+
+>>>malloy
+run: deaths -> {
+  aggregate: total_deaths
+}
+
+>>>markdown
+## Discovery: The number is far larger than I expected
+
+8,832 recorded deaths across the southern border. This number alone reflects
+the scale of the situation, and led me to my next question: how has this
+changed over time?
+
+>>>malloy
+# line_chart
+run: deaths -> {
+  group_by: year_clean
+  aggregate: total_deaths
+  order_by: year_clean asc
+  where: year_clean is not null
+}
+
+>>>markdown
+## Discovery: A sharp rise starting in 2000 and another surge in recent years
+
+The chart shows a dramatic increase in recorded deaths beginning in the early
+2000s, followed by another sustained rise from 2020 onward. 2022 was the
+deadliest year on record with 683 cases. This made me wonder where these
+deaths are concentrated geographically.
+
+>>>malloy
+# bar_chart
+run: deaths -> {
+  group_by: us_state_only
+  aggregate: total_deaths
+  where: us_state_only != 'Other'
+  order_by: total_deaths desc
+}
+
+>>>markdown
+## Discovery: Arizona carries the heaviest burden
+
+Arizona accounts for over half of all recorded border deaths in the dataset
+at 4,636 cases. Texas follows with 3,037 and California with 799. This led me
+to dig deeper into the specific causes of death.
+
+>>>malloy
+run: deaths -> {
+  group_by: Cause_of_Death
+  aggregate: total_deaths
+  order_by: total_deaths desc
+  limit: 10
+  where: Cause_of_Death is not null
+}
+
+>>>markdown
+## Discovery: Skeletal remains are nearly as common as exposure
+
+This was the finding that surprised me most. Environmental exposure (1,569
+cases) and skeletal remains (1,567 cases) are nearly tied as the leading
+findings. Skeletal remains means the body was not found until long after
+death, which made me curious about how often basic information like age or
+identity could even be determined.
+
+>>>malloy
+run: deaths -> {
+  aggregate:
+    total_deaths
+    deaths_with_known_age
+    deaths_with_coordinates
+}
+
+>>>markdown
+## Discovery: Almost half of all decedents have an unknown age
+
+Of 8,832 recorded deaths, only 4,881 had a determinable age. That means 45
+percent of all decedents could not be identified to even an approximate age.
+While 7,324 cases have GPS coordinates, the gap between when these deaths
+occurred and when remains were recovered is often substantial.
+
+>>>markdown
+## Conclusion: A dataset for awareness and search efforts
+
+What started as a simple question about how many deaths have been recorded
+turned into a much deeper exploration. The data reveals not only the scale
+of the situation but also the difficulty of identifying decedents along
+remote stretches of the border. The geographic concentrations point to where
+search and humanitarian efforts may be most needed, and the identification
+gaps highlight the work that remains for families still searching for
+missing loved ones.
+
+This dataset is a tool for awareness, for research, and for the organizations
+working to recover and identify those whose stories would otherwise be lost.
