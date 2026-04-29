@@ -1,0 +1,166 @@
+source: deaths is duckdb.table("data/border_deaths_master.csv") extend {
+
+  // --- Helper Dimensions ---
+  dimension: year_clean is `Year`::number
+
+  dimension: age_numeric is Age::number
+
+  dimension: age_group is case
+    when age_numeric < 18 then "Minor (under 18)"
+    when age_numeric >= 18 and age_numeric <= 25 then "Young Adult (18-25)"
+    when age_numeric >= 26 and age_numeric <= 35 then "Adult (26-35)"
+    when age_numeric >= 36 and age_numeric <= 45 then "Middle Aged (36-45)"
+    when age_numeric >= 46 and age_numeric <= 60 then "Older Adult (46-60)"
+    when age_numeric > 60 then "Senior (60+)"
+    else "Unknown Age"
+  end
+
+  dimension: us_state_only is case
+    when State = 'Arizona' then 'Arizona'
+    when State = 'California' then 'California'
+    when State = 'Texas' then 'Texas'
+    when State = 'New Mexico' then 'New Mexico'
+    else 'Other'
+  end
+
+  // --- Measures ---
+  measure: total_deaths is count()
+  measure: deaths_with_known_age is count() { where: age_numeric is not null }
+  measure: deaths_with_coordinates is count() {
+    where: Latitude is not null and Longitude is not null
+  }
+  measure: avg_age is avg(age_numeric)
+
+  // --- Views ---
+
+  // 1. Total deaths by year
+  view: deaths_by_year is {
+    group_by: year_clean
+    aggregate: total_deaths
+    order_by: year_clean asc
+    where: year_clean is not null
+  }
+
+  // 2. Deaths by US state
+  view: deaths_by_state is {
+    group_by: us_state_only
+    aggregate: total_deaths
+    where: us_state_only != 'Other'
+    order_by: total_deaths desc
+  }
+
+// 3. Deaths by source (county/agency)
+  view: deaths_by_source is {
+    group_by: `Source`
+    aggregate: total_deaths
+    order_by: total_deaths desc
+  }
+
+  // 4. Deaths by gender
+  view: deaths_by_gender is {
+    group_by: Gender
+    aggregate:
+      total_deaths
+      avg_age
+    order_by: total_deaths desc
+  }
+
+  // 5. Deaths by age group
+  view: deaths_by_age_group is {
+    group_by: age_group
+    aggregate: total_deaths
+    order_by: total_deaths desc
+  }
+
+  // 6. Top causes of death
+  view: deaths_by_cause is {
+    group_by: Cause_of_Death
+    aggregate: total_deaths
+    order_by: total_deaths desc
+    limit: 15
+    where: Cause_of_Death is not null
+  }
+
+  // 7. Top nationalities of decedents
+  view: deaths_by_nationality is {
+    group_by: Nationality
+    aggregate: total_deaths
+    where: Nationality is not null and Nationality != ''
+    order_by: total_deaths desc
+    limit: 15
+  }
+
+  // 8. Recent surge: deaths from 2020 to present
+  view: recent_deaths_by_year is {
+    group_by: year_clean
+    aggregate: total_deaths
+    where: year_clean >= 2020
+    order_by: year_clean asc
+  }
+
+  // 9. Data completeness summary
+  view: data_completeness is {
+    aggregate:
+      total_deaths
+      deaths_with_known_age
+      deaths_with_coordinates
+  }
+
+  // 10. Deadliest counties
+  view: deadliest_counties is {
+    group_by: County, us_state_only
+    aggregate: total_deaths
+    where: us_state_only != 'Other'
+    order_by: total_deaths desc
+    limit: 10
+  }
+
+  // 11. NESTED - Deaths by state with year breakdown inside
+  view: state_by_year is {
+    group_by: us_state_only
+    aggregate: total_deaths
+    where: us_state_only != 'Other'
+    nest: yearly_breakdown is {
+      group_by: year_clean
+      aggregate: total_deaths
+      where: year_clean is not null
+      order_by: year_clean asc
+    }
+    order_by: total_deaths desc
+  }
+
+  // 12. NESTED - Deaths by year with state breakdown inside
+  view: year_by_state is {
+    group_by: year_clean
+    aggregate: total_deaths
+    where: year_clean is not null and year_clean >= 2015
+    nest: state_breakdown is {
+      group_by: us_state_only
+      aggregate: total_deaths
+      where: us_state_only != 'Other'
+      order_by: total_deaths desc
+    }
+    order_by: year_clean asc
+  }
+
+}
+
+// --- Run statements with chart annotations ---
+
+// Line chart of deaths over time
+# line_chart
+run: deaths -> deaths_by_year
+
+// Bar chart of deaths by state
+# bar_chart
+run: deaths -> deaths_by_state
+
+run: deaths -> deaths_by_cause
+
+run: deaths -> deaths_by_nationality
+
+run: deaths -> recent_deaths_by_year
+
+run: deaths -> deadliest_counties
+
+run: deaths -> data_completeness
