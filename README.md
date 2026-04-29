@@ -4,7 +4,7 @@ A Malloy data analysis project investigating migrant death patterns across the
 entire U.S.-Mexico border using the No More Deaths Border Death Database. This
 project explores 8,832 recorded deaths spanning 44 years and surfaces concrete
 insights intended to support humanitarian search efforts and broader awareness
-of one of the most significant ongoing humanitarian situations in the United States.
+of one of the most significant ongoing humanitarian crises in the United States.
 
 ---
 
@@ -15,7 +15,7 @@ remains across the southern U.S. border from 2002 to 2025, drawing on data from
 ten different county medical examiner offices, sheriff's departments, and Border
 Patrol records. After standardizing and combining the data into one master
 dataset, this analysis revealed geographic, temporal, and demographic patterns
-that point to the scale of the situation and the gaps in identification that
+that point to the scale of the crisis and the gaps in identification that
 remain a challenge for families, researchers, and humanitarian organizations.
 
 ---
